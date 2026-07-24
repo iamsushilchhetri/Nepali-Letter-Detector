@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Nepali Letter Detector</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body>
+  <main class="wrap">
+    <header>
+      <p class="kicker">devanagari ocr, 46 classes</p>
+      <h1>नेपाली अक्षर पहिचान</h1>
+      <p class="subtitle">
+        Nepali Handwritten Letter Detector — draw a Devanagari letter or digit,
+        upload a photo, or use your camera.
+      </p>
+    </header>
+
+    <section class="board">
+      <div class="canvas-card">
+        <div class="canvas-frame">
+          <canvas id="canvas" width="280" height="280" aria-label="Drawing canvas"></canvas>
+        </div>
+        <div class="controls">
+          <button id="clear-btn" type="button">Clear</button>
+          <button id="upload-btn" type="button">Upload</button>
+          <button id="camera-btn" type="button">Camera</button>
+        </div>
+        <div class="controls">
+          <button id="predict-btn" type="button" class="primary">Predict</button>
+        </div>
+        <input id="upload-input" type="file" accept="image/*" hidden />
+        <input id="camera-fallback-input" type="file" accept="image/*" capture="environment" hidden />
+      </div>
+
+      <div class="result-card" id="result-card">
+        <div class="top-result" id="top-result">
+          <span class="placeholder">Draw a letter and hit Predict</span>
+        </div>
+        <ol class="ranked-list" id="ranked-list"></ol>
+      </div>
+    </section>
+
+    <footer>
+      <p>46 classes: 36 Devanagari consonants + 10 digits · CNN trained on the UCI Devanagari Handwritten Character Dataset</p>
+    </footer>
+  </main>
+
+  <div id="camera-modal" class="modal hidden">
+    <div class="modal-content">
+      <video id="camera-video" autoplay playsinline muted></video>
+      <div class="controls">
+        <button id="camera-cancel-btn" type="button">Cancel</button>
+        <button id="camera-capture-btn" type="button" class="primary">Capture</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
