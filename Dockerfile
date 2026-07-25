@@ -12,6 +12,7 @@ COPY models ./models
 RUN uv sync --frozen --no-dev
 
 EXPOSE 8000
-ENV FLASK_RUN_PORT=8000
+ENV PORT=8000
+ENV WEB_CONCURRENCY=1
 
-CMD ["uv", "run", "gunicorn", "--bind", "0.0.0.0:8000", "--workers", "2", "app.main:app"]
+CMD ["sh", "-c", "uv run gunicorn --bind 0.0.0.0:${PORT} --workers ${WEB_CONCURRENCY} --timeout 120 app.main:app"]
