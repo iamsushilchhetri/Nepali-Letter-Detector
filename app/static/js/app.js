@@ -1,149 +1,166 @@
 const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
-const clearBtn = document.getElementById("clear-btn");
-const predictBtn = document.getElementById("predict-btn");
-const uploadBtn = document.getElementById("upload-btn");
+const context = canvas.getContext("2d");
+const drawTab = document.getElementById("draw-tab");
+const uploadTab = document.getElementById("upload-tab");
+const drawPanel = document.getElementById("draw-panel");
+const uploadPanel = document.getElementById("upload-panel");
+const clearButton = document.getElementById("clear-btn");
+const cameraButton = document.getElementById("camera-btn");
+const predictButton = document.getElementById("predict-btn");
 const uploadInput = document.getElementById("upload-input");
-const cameraBtn = document.getElementById("camera-btn");
+const uploadPreview = document.getElementById("upload-preview");
+const uploadDropzone = document.getElementById("upload-dropzone");
 const cameraFallbackInput = document.getElementById("camera-fallback-input");
 const cameraModal = document.getElementById("camera-modal");
 const cameraVideo = document.getElementById("camera-video");
-const cameraCaptureBtn = document.getElementById("camera-capture-btn");
-const cameraCancelBtn = document.getElementById("camera-cancel-btn");
+const cameraCaptureButton = document.getElementById("camera-capture-btn");
+const cameraCancelButton = document.getElementById("camera-cancel-btn");
 const topResult = document.getElementById("top-result");
 const rankedList = document.getElementById("ranked-list");
+const resultStatus = document.getElementById("result-status");
 
 const STROKE_WIDTH = 18;
 let drawing = false;
 let lastPoint = null;
+let activeMode = "draw";
 let cameraStream = null;
 
+function setMode(mode) {
+  activeMode = mode;
+  const drawActive = mode === "draw";
+  drawTab.classList.toggle("active", drawActive);
+  uploadTab.classList.toggle("active", !drawActive);
+  drawPanel.classList.toggle("hidden", !drawActive);
+  uploadPanel.classList.toggle("hidden", drawActive);
+}
+
 function resetCanvas() {
-  ctx.fillStyle = "#000";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  context.fillStyle = "#fffdf8";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.strokeStyle = "#1f1b18";
+  context.lineWidth = STROKE_WIDTH;
+  context.lineCap = "round";
+  context.lineJoin = "round";
+}
 
-  // faint sketchpad grid -- dim enough to stay below the server's foreground threshold
-  ctx.strokeStyle = "rgba(76, 124, 240, 0.14)";
-  ctx.lineWidth = 1;
-  const step = canvas.width / 8;
-  for (let i = 1; i < 8; i++) {
-    ctx.beginPath();
-    ctx.moveTo(i * step + 0.5, 0);
-    ctx.lineTo(i * step + 0.5, canvas.height);
-    ctx.moveTo(0, i * step + 0.5);
-    ctx.lineTo(canvas.width, i * step + 0.5);
-    ctx.stroke();
-  }
+function clearUploadedPreview() {
+  uploadPreview.src = "";
+  uploadPreview.classList.add("hidden");
+}
 
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = STROKE_WIDTH;
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
+function clearWorkspace() {
+  resetCanvas();
+  clearUploadedPreview();
+  showPlaceholder("Draw or upload a handwritten character to begin.");
 }
 
 function showPlaceholder(message) {
-  topResult.innerHTML = `<span class="placeholder">${message}</span>`;
+  topResult.innerHTML = `<p class="text-sm text-parchment/60">${message}</p>`;
   rankedList.innerHTML = "";
+  resultStatus.textContent = "Waiting";
 }
 
-// --- freehand drawing ---
-// Uses the Pointer Events API (unifies mouse/trackpad/touch/stylus) with
-// pointer capture, so a fast drag that momentarily leaves the small canvas
-// still keeps drawing instead of breaking into a native text-selection drag.
+function showError(message) {
+  topResult.innerHTML = `
+    <div class="space-y-3">
+      <p class="text-xs uppercase tracking-[0.2em] text-red-200/80">Problem</p>
+      <p class="text-base font-medium text-red-100">${message}</p>
+    </div>
+  `;
+  rankedList.innerHTML = "";
+  resultStatus.textContent = "Error";
+}
 
-function pointFromEvent(evt) {
+function canvasIsBlank() {
+  const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+  for (let index = 0; index < pixels.length; index += 4) {
+    const red = pixels[index];
+    const green = pixels[index + 1];
+    const blue = pixels[index + 2];
+    if (red < 250 || green < 250 || blue < 250) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function pointFromEvent(event) {
   const rect = canvas.getBoundingClientRect();
   const scaleX = canvas.width / rect.width;
   const scaleY = canvas.height / rect.height;
   return {
-    x: (evt.clientX - rect.left) * scaleX,
-    y: (evt.clientY - rect.top) * scaleY,
+    x: (event.clientX - rect.left) * scaleX,
+    y: (event.clientY - rect.top) * scaleY
   };
 }
 
-function startDraw(evt) {
-  evt.preventDefault();
+function startDrawing(event) {
+  if (activeMode !== "draw") return;
+  event.preventDefault();
   drawing = true;
-  canvas.setPointerCapture(evt.pointerId);
-  lastPoint = pointFromEvent(evt);
+  canvas.setPointerCapture(event.pointerId);
+  lastPoint = pointFromEvent(event);
 }
 
-function draw(evt) {
-  if (!drawing) return;
-  evt.preventDefault();
-  const point = pointFromEvent(evt);
-  ctx.beginPath();
-  ctx.moveTo(lastPoint.x, lastPoint.y);
-  ctx.lineTo(point.x, point.y);
-  ctx.stroke();
+function draw(event) {
+  if (!drawing || activeMode !== "draw") return;
+  event.preventDefault();
+  const point = pointFromEvent(event);
+  context.beginPath();
+  context.moveTo(lastPoint.x, lastPoint.y);
+  context.lineTo(point.x, point.y);
+  context.stroke();
   lastPoint = point;
 }
 
-function endDraw(evt) {
+function stopDrawing(event) {
   if (!drawing) return;
-  evt.preventDefault();
+  event.preventDefault();
   drawing = false;
   lastPoint = null;
 }
 
-canvas.addEventListener("pointerdown", startDraw);
-canvas.addEventListener("pointermove", draw);
-canvas.addEventListener("pointerup", endDraw);
-canvas.addEventListener("pointercancel", endDraw);
-
-clearBtn.addEventListener("click", () => {
+function drawSourceToCanvas(source, width, height) {
   resetCanvas();
-  showPlaceholder("Draw a letter and hit Predict");
-});
-
-// --- drawing an external image (upload or camera frame) onto the canvas ---
-
-function drawSourceToCanvas(source, srcWidth, srcHeight) {
-  const scale = Math.max(canvas.width / srcWidth, canvas.height / srcHeight);
-  const w = srcWidth * scale;
-  const h = srcHeight * scale;
-  const x = (canvas.width - w) / 2;
-  const y = (canvas.height - h) / 2;
-  ctx.fillStyle = "#000";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(source, x, y, w, h);
+  const scale = Math.min(canvas.width / width, canvas.height / height);
+  const drawWidth = width * scale;
+  const drawHeight = height * scale;
+  const x = (canvas.width - drawWidth) / 2;
+  const y = (canvas.height - drawHeight) / 2;
+  context.drawImage(source, x, y, drawWidth, drawHeight);
 }
 
-function loadImageFile(file) {
-  const img = new Image();
-  img.onload = () => {
-    drawSourceToCanvas(img, img.naturalWidth, img.naturalHeight);
-    URL.revokeObjectURL(img.src);
-    runPrediction();
+function renderUploadPreview(url) {
+  uploadPreview.src = url;
+  uploadPreview.classList.remove("hidden");
+}
+
+function handleImageFile(file) {
+  const previewUrl = URL.createObjectURL(file);
+  renderUploadPreview(previewUrl);
+
+  const image = new Image();
+  image.onload = () => {
+    drawSourceToCanvas(image, image.naturalWidth, image.naturalHeight);
+    URL.revokeObjectURL(previewUrl);
   };
-  img.src = URL.createObjectURL(file);
+  image.src = previewUrl;
 }
-
-function handleFileInputChange(evt) {
-  const file = evt.target.files[0];
-  evt.target.value = ""; // allow re-selecting the same file later
-  if (file) loadImageFile(file);
-}
-
-uploadBtn.addEventListener("click", () => uploadInput.click());
-uploadInput.addEventListener("change", handleFileInputChange);
-cameraFallbackInput.addEventListener("change", handleFileInputChange);
-
-// --- camera capture ---
 
 async function openCamera() {
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     cameraFallbackInput.click();
     return;
   }
+
   try {
     cameraStream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: "environment" },
-      audio: false,
+      audio: false
     });
     cameraVideo.srcObject = cameraStream;
     cameraModal.classList.remove("hidden");
-  } catch (err) {
+  } catch (error) {
     cameraFallbackInput.click();
   }
 }
@@ -157,63 +174,137 @@ function closeCamera() {
   cameraModal.classList.add("hidden");
 }
 
-cameraBtn.addEventListener("click", openCamera);
-cameraCancelBtn.addEventListener("click", closeCamera);
-cameraCaptureBtn.addEventListener("click", () => {
+function captureCameraFrame() {
+  if (!cameraVideo.videoWidth || !cameraVideo.videoHeight) {
+    return;
+  }
   drawSourceToCanvas(cameraVideo, cameraVideo.videoWidth, cameraVideo.videoHeight);
   closeCamera();
-  runPrediction();
-});
-
-// --- prediction ---
-
-predictBtn.addEventListener("click", runPrediction);
-
-async function runPrediction() {
-  predictBtn.disabled = true;
-  predictBtn.textContent = "Predicting...";
-  try {
-    const dataUrl = canvas.toDataURL("image/png");
-    const res = await fetch("/predict", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ image: dataUrl }),
-    });
-    const body = await res.json();
-    if (!res.ok) {
-      throw new Error(body.error || "Prediction failed");
-    }
-    renderPredictions(body.predictions);
-  } catch (err) {
-    showPlaceholder(err.message);
-  } finally {
-    predictBtn.disabled = false;
-    predictBtn.textContent = "Predict";
-  }
+  setMode("draw");
 }
 
 function renderPredictions(predictions) {
   if (!predictions || predictions.length === 0) {
-    showPlaceholder("No prediction returned");
+    showPlaceholder("No predictions were returned.");
     return;
   }
 
   const top = predictions[0];
   topResult.innerHTML = `
-    <span class="glyph">${top.label}</span>
-    <span class="conf">${(top.confidence * 100).toFixed(1)}% confidence</span>
+    <div class="space-y-3">
+      <p class="text-xs uppercase tracking-[0.2em] text-parchment/50">Top prediction</p>
+      <div class="font-display text-5xl leading-none text-parchment md:text-6xl">${top.label}</div>
+      <p class="text-sm text-parchment/70">${(top.confidence * 100).toFixed(1)}% confidence</p>
+    </div>
   `;
 
   rankedList.innerHTML = predictions
-    .map(
-      (p) => `
-      <li>
-        <span class="rank-glyph">${p.label.split(" ")[0]}</span>
-        <span class="bar-track"><span class="bar-fill" style="width:${(p.confidence * 100).toFixed(1)}%"></span></span>
-        <span class="pct">${(p.confidence * 100).toFixed(1)}%</span>
-      </li>`
-    )
+    .map((prediction, index) => {
+      const percentage = (prediction.confidence * 100).toFixed(1);
+      const glyph = prediction.label.split(" ")[0];
+      return `
+        <li class="rounded-2xl border border-white/8 bg-white/5 p-4">
+          <div class="mb-3 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+              <span class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/8 font-display text-xl text-parchment">${glyph}</span>
+              <div>
+                <p class="text-sm font-medium text-parchment">${prediction.label}</p>
+                <p class="text-xs uppercase tracking-[0.18em] text-parchment/45">Rank ${index + 1}</p>
+              </div>
+            </div>
+            <span class="text-sm font-semibold text-parchment">${percentage}%</span>
+          </div>
+          <div class="result-bar-track h-2">
+            <span class="result-bar-fill" style="width:${percentage}%"></span>
+          </div>
+        </li>
+      `;
+    })
     .join("");
+
+  resultStatus.textContent = "Updated";
 }
 
+async function runPrediction() {
+  if (canvasIsBlank()) {
+    showError("Please draw or upload a character before predicting.");
+    return;
+  }
+
+  predictButton.disabled = true;
+  predictButton.textContent = "Predicting...";
+  resultStatus.textContent = "Running";
+
+  try {
+    const dataUrl = canvas.toDataURL("image/png");
+    const response = await fetch("/api/predict", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image: dataUrl })
+    });
+    const body = await response.json();
+    if (!response.ok) {
+      throw new Error(body.error || "Prediction failed.");
+    }
+    renderPredictions(body.predictions);
+  } catch (error) {
+    showError(error.message);
+  } finally {
+    predictButton.disabled = false;
+    predictButton.textContent = "Predict Character";
+  }
+}
+
+drawTab.addEventListener("click", () => setMode("draw"));
+uploadTab.addEventListener("click", () => setMode("upload"));
+
+canvas.addEventListener("pointerdown", startDrawing);
+canvas.addEventListener("pointermove", draw);
+canvas.addEventListener("pointerup", stopDrawing);
+canvas.addEventListener("pointercancel", stopDrawing);
+
+clearButton.addEventListener("click", clearWorkspace);
+cameraButton.addEventListener("click", openCamera);
+predictButton.addEventListener("click", runPrediction);
+cameraCaptureButton.addEventListener("click", captureCameraFrame);
+cameraCancelButton.addEventListener("click", closeCamera);
+
+uploadInput.addEventListener("change", (event) => {
+  const file = event.target.files?.[0];
+  event.target.value = "";
+  if (!file) return;
+  setMode("upload");
+  handleImageFile(file);
+});
+
+cameraFallbackInput.addEventListener("change", (event) => {
+  const file = event.target.files?.[0];
+  event.target.value = "";
+  if (!file) return;
+  setMode("upload");
+  handleImageFile(file);
+});
+
+["dragenter", "dragover"].forEach((eventName) => {
+  uploadDropzone.addEventListener(eventName, (event) => {
+    event.preventDefault();
+    uploadDropzone.classList.add("border-saffron/60", "bg-white");
+  });
+});
+
+["dragleave", "drop"].forEach((eventName) => {
+  uploadDropzone.addEventListener(eventName, (event) => {
+    event.preventDefault();
+    uploadDropzone.classList.remove("border-saffron/60", "bg-white");
+  });
+});
+
+uploadDropzone.addEventListener("drop", (event) => {
+  const file = event.dataTransfer?.files?.[0];
+  if (!file) return;
+  setMode("upload");
+  handleImageFile(file);
+});
+
 resetCanvas();
+showPlaceholder("Draw or upload a handwritten character to begin.");

@@ -1,90 +1,161 @@
-# Nepali Letter Detector
+# Nepali Handwritten Letter Detector
 
-Draw a Devanagari letter or digit, upload a photo of one, or snap it with your camera —
-a CNN predicts which of Nepali's 46 handwritten characters it is, in real time.
+This project recognizes handwritten Nepali Devanagari letters and digits with a custom PyTorch convolutional neural network.
 
-## How it works
+The app lets a user:
 
-- **Model**: a small CNN (PyTorch) trained on the [UCI Devanagari Handwritten Character
-  Dataset](https://archive.ics.uci.edu/dataset/389/devanagari+handwritten+character+dataset)
-  — 36 consonants + 10 digits, 92,000 labeled 32x32 images. **98.3% accuracy** on the
-  13,800-image held-out test set.
-- **Backend**: Flask REST API (`/predict`) that takes a base64 PNG (from the canvas, an
-  uploaded photo, or a camera frame), auto-detects whether it's light-background/dark-ink
-  (a photo) or dark-background/light-strokes (the drawing canvas), normalizes it to match
-  the training distribution, crops/centers/rescales to 32x32, and returns the top-5
-  predicted characters with confidence scores.
-- **Frontend**: a plain HTML5 canvas + vanilla JS — no build step. Three ways to get a
-  character onto the canvas: freehand drawing, image upload, or live camera capture
-  (`getUserMedia`, falling back to the device's native camera picker where unsupported).
+- draw a character on a browser canvas
+- upload a handwritten image
+- get the predicted class
+- see ranked confidence scores
 
-## Project layout
 
+The classifier in `src/nepali_letter_detector/model.py` is my own CNN built from scratch with basic PyTorch layers:
+
+- `Conv2d`
+- `BatchNorm2d`
+- `ReLU`
+- `MaxPool2d`
+- `Dropout`
+- `Linear`
+
+No pretrained model or transfer learning is used.
+
+## Project structure
+
+```text
+Nepali-Letter-Detector/
+|-- app/
+|   |-- main.py
+|   |-- static/
+|   |   |-- css/
+|   |   |   `-- style.css
+|   |   `-- js/
+|   |       `-- app.js
+|   `-- templates/
+|       `-- index.html
+|-- data/
+|   |-- downloads/
+|   |-- train/
+|   |-- validation/
+|   `-- test/
+|-- models/
+|   |-- classes.json
+|   |-- model.pt
+|   `-- checkpoints/
+|-- notebooks/
+|-- scripts/
+|   |-- import_uci_dataset.py
+|   |-- predict_image.py
+|   |-- run_training.py
+|   |-- run_web_app.py
+|   |-- verify_environment.py
+|   |-- verify_training_pipeline.py
+|   `-- verify_web_app.py
+|-- src/
+|   `-- nepali_letter_detector/
+|       |-- __init__.py
+|       |-- config.py
+|       |-- data.py
+|       |-- inference.py
+|       |-- labels.py
+|       |-- model.py
+|       `-- training.py
+|-- tests/
+|-- README.md
+`-- requirements.txt
 ```
-app/
-  main.py         Flask app & routes
-  inference.py    image preprocessing + model inference (Predictor)
-  model.py        CNN architecture
-  labels.py       folder-name -> Devanagari glyph mapping
-  templates/      index.html
-  static/         css/js for the drawing canvas
-scripts/
-  train.py        training script (torchvision ImageFolder + CNN)
-models/           trained weights (model.pt) + class order (classes.json)
-tests/            pytest unit tests
+
+## Why the important files exist
+
+- `src/nepali_letter_detector/model.py`: defines the custom CNN.
+- `src/nepali_letter_detector/data.py`: loads class folders and builds dataloaders.
+- `src/nepali_letter_detector/training.py`: training and evaluation helpers.
+- `src/nepali_letter_detector/inference.py`: preprocessing and prediction logic.
+- `src/nepali_letter_detector/labels.py`: maps class folders to Nepali glyphs and romanized names.
+- `app/main.py`: Flask routes for the page and prediction API.
+- `app/templates/index.html`: page layout.
+- `app/static/js/app.js`: browser-side drawing, upload, and prediction flow.
+- `scripts/run_training.py`: trains the model locally.
+- `scripts/predict_image.py`: predicts from a single image file in the terminal.
+
+## Dataset layout
+
+Each split must contain one folder per class label:
+
+```text
+data/
+|-- train/
+|   |-- character_1_ka/
+|   |-- character_2_kha/
+|   `-- digit_0/
+|-- validation/
+|   |-- character_1_ka/
+|   |-- character_2_kha/
+|   `-- digit_0/
+`-- test/
+    |-- character_1_ka/
+    |-- character_2_kha/
+    `-- digit_0/
 ```
+
+The project currently contains a real imported dataset in this format.
+
+## Current model artifacts
+
+The app looks for model files in this order:
+
+1. `models/checkpoints/best_model.pt`
+2. `models/checkpoints/final_model.pt`
+3. `models/model.pt`
+
+Latest verified local training run on July 25, 2026:
+
+- epochs: 2
+- training images: 70,380
+- validation images: 7,820
+- validation accuracy: 97.15%
 
 ## Setup
 
-Requires [uv](https://docs.astral.sh/uv/) and Python 3.13.
+Create and activate the environment:
 
-```bash
-uv sync
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
 ```
 
-## Train the model
+Install dependencies:
 
-1. Download the dataset and extract it so you have `data/raw/Train/` and `data/raw/Test/`,
-   each containing 46 class subfolders (`character_1_ka`, ..., `digit_9`):
-
-   ```bash
-   curl -L -o dataset.zip "https://archive.ics.uci.edu/static/public/389/devanagari+handwritten+character+dataset.zip"
-   unzip dataset.zip -d data/raw_tmp
-   mv data/raw_tmp/DevanagariHandwrittenCharacterDataset/* data/raw/
-   ```
-
-2. Train:
-
-   ```bash
-   uv run scripts/train.py --epochs 10
-   ```
-
-   This saves the best checkpoint to `models/model.pt` and the class order to
-   `models/classes.json`. A pretrained checkpoint is already committed to this repo,
-   so this step is optional unless you want to retrain.
-
-## Run the app
-
-```bash
-uv run flask --app app.main run --debug
+```powershell
+python -m pip install -r requirements.txt
 ```
 
-Open http://127.0.0.1:5000, draw a letter (or upload/capture a photo of one), and click **Predict**.
+## Run verification
 
-## Run with Docker
-
-```bash
-docker build -t nepali-letter-detector .
-docker run -p 8000:8000 nepali-letter-detector
+```powershell
+python scripts/verify_environment.py
+python scripts/verify_training_pipeline.py
+python scripts/verify_web_app.py
+python -m unittest discover -s tests -v
 ```
 
-## Tests
+## Train locally
 
-```bash
-uv run pytest
-uv run ruff check .
+```powershell
+python scripts/run_training.py --epochs 10 --batch-size 16 --image-size 32
 ```
 
-## Tech stack
+## Run the web app
 
-Python, PyTorch, torchvision, Flask, Docker, GitHub Actions, HTML/CSS/JS (Canvas API).
+```powershell
+python scripts/run_web_app.py
+```
+
+Then open [http://127.0.0.1:5000](http://127.0.0.1:5000).
+
+## Predict from the command line
+
+```powershell
+python scripts/predict_image.py path\to\image.png
+```

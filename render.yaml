@@ -1,9 +1,0 @@
-services:
-  - type: web
-    name: nepali-letter-detector
-    runtime: docker
-    plan: free
-    healthCheckPath: /healthz
-    envVars:
-      - key: WEB_CONCURRENCY
-        value: "1"

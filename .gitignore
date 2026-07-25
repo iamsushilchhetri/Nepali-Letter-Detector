@@ -1,18 +1,23 @@
-# Python-generated files
+.venv/
+.venv_broken_20260725/
 __pycache__/
-*.py[oc]
-build/
-dist/
-wheels/
-*.egg-info
+*.py[cod]
+.ruff_cache/
+.pytest_cache/
+.ipynb_checkpoints/
+.cache/
 
-# Virtual environments
-.venv
+data/train/*
+!data/train/.gitkeep
+data/validation/*
+!data/validation/.gitkeep
+data/test/*
+!data/test/.gitkeep
 
-# Dataset (downloaded separately, see scripts/train.py)
-data/
-
-# IDE
-.vscode/
-.idea/
-
+models/*
+!models/.gitkeep
+!models/classes.json
+!models/model.pt
+!models/README.md
+models/checkpoints/*
+!models/checkpoints/.gitkeep

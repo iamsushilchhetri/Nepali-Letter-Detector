@@ -1,58 +1,136 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Nepali Letter Detector</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Devanagari:wght@400;600;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            parchment: "#f7efe1",
+            ink: "#1e1a16",
+            saffron: "#db7c26",
+            maroon: "#7c2d12",
+            moss: "#6b7a45",
+            charcoal: "#201c19"
+          },
+          fontFamily: {
+            display: ["Noto Serif Devanagari", "serif"],
+            sans: ["Space Grotesk", "sans-serif"]
+          },
+          boxShadow: {
+            card: "0 24px 80px rgba(44, 27, 12, 0.14)"
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-<body>
-  <main class="wrap">
-    <header>
-      <p class="kicker">devanagari ocr, 46 classes</p>
-      <h1>नेपाली अक्षर पहिचान</h1>
-      <p class="subtitle">
-        Nepali Handwritten Letter Detector — draw a Devanagari letter or digit,
-        upload a photo, or use your camera.
+<body class="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(219,124,38,0.18),_transparent_32%),linear-gradient(180deg,_#fbf6ed_0%,_#f4ead7_100%)] text-ink font-sans">
+  <div class="grain"></div>
+  <main class="relative mx-auto max-w-7xl px-5 py-8 md:px-8 lg:px-10">
+    <section class="mb-6 rounded-[2rem] border border-white/60 bg-white/70 px-6 py-6 shadow-card backdrop-blur md:px-8 md:py-7">
+      <h1 class="font-display text-3xl leading-tight text-charcoal md:text-5xl">
+        Nepali Handwritten Letter Detector
+      </h1>
+      <p class="mt-3 max-w-3xl text-sm leading-7 text-stone-700 md:text-base">
+        Draw or upload one handwritten Nepali character to get a prediction.
       </p>
-    </header>
-
-    <section class="board">
-      <div class="canvas-card">
-        <div class="canvas-frame">
-          <canvas id="canvas" width="280" height="280" aria-label="Drawing canvas"></canvas>
-        </div>
-        <div class="controls">
-          <button id="clear-btn" type="button">Clear</button>
-          <button id="upload-btn" type="button">Upload</button>
-          <button id="camera-btn" type="button">Camera</button>
-        </div>
-        <div class="controls">
-          <button id="predict-btn" type="button" class="primary">Predict</button>
-        </div>
-        <input id="upload-input" type="file" accept="image/*" hidden />
-        <input id="camera-fallback-input" type="file" accept="image/*" capture="environment" hidden />
-      </div>
-
-      <div class="result-card" id="result-card">
-        <div class="top-result" id="top-result">
-          <span class="placeholder">Draw a letter and hit Predict</span>
-        </div>
-        <ol class="ranked-list" id="ranked-list"></ol>
-      </div>
     </section>
 
-    <footer>
-      <p>46 classes: 36 Devanagari consonants + 10 digits · CNN trained on the UCI Devanagari Handwritten Character Dataset</p>
-    </footer>
+    <section class="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
+      <section class="rounded-[2rem] border border-white/60 bg-white/75 p-5 shadow-card backdrop-blur md:p-7">
+        <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="text-2xl font-semibold text-charcoal">Input</h2>
+          </div>
+          <div class="flex rounded-full border border-stone-200 bg-stone-100 p-1">
+            <button id="draw-tab" type="button" class="mode-tab active rounded-full px-4 py-2 text-sm font-medium">Draw</button>
+            <button id="upload-tab" type="button" class="mode-tab rounded-full px-4 py-2 text-sm font-medium">Upload</button>
+          </div>
+        </div>
+
+        <div id="draw-panel" class="mode-panel space-y-4">
+          <div class="rounded-[1.5rem] border border-stone-200 bg-[linear-gradient(180deg,_rgba(255,255,255,0.9),_rgba(247,239,225,0.95))] p-3">
+            <div class="canvas-frame overflow-hidden rounded-[1.1rem] border border-saffron/15 bg-[#fffdf8]">
+              <canvas id="canvas" width="320" height="320" aria-label="Drawing canvas" class="block w-full touch-none"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div id="upload-panel" class="mode-panel hidden space-y-4">
+          <label id="upload-dropzone" for="upload-input" class="group flex min-h-[22rem] cursor-pointer flex-col items-center justify-center rounded-[1.5rem] border border-dashed border-saffron/30 bg-[linear-gradient(180deg,_rgba(255,255,255,0.95),_rgba(247,239,225,0.9))] p-6 text-center transition hover:border-saffron/60 hover:bg-white">
+            <div class="rounded-full bg-saffron/10 px-4 py-2 text-xs uppercase tracking-[0.22em] text-maroon">Drop image here</div>
+            <h3 class="mt-5 text-2xl font-semibold text-charcoal">Upload one image</h3>
+            <img id="upload-preview" alt="Uploaded preview" class="mt-6 hidden max-h-48 rounded-2xl border border-stone-200 shadow-sm">
+          </label>
+          <input id="upload-input" type="file" accept="image/*" hidden>
+        </div>
+
+        <div class="mt-6 flex flex-wrap gap-3">
+          <button id="clear-btn" type="button" class="rounded-full border border-stone-300 bg-stone-100 px-5 py-3 text-sm font-medium text-charcoal transition hover:border-saffron/40 hover:bg-white">
+            Clear
+          </button>
+          <button id="camera-btn" type="button" class="rounded-full border border-stone-300 bg-white px-5 py-3 text-sm font-medium text-charcoal transition hover:border-saffron/40 hover:bg-stone-50">
+            Camera
+          </button>
+          <button id="predict-btn" type="button" class="rounded-full bg-charcoal px-6 py-3 text-sm font-semibold text-white transition hover:bg-maroon">
+            Predict Character
+          </button>
+        </div>
+        <input id="camera-fallback-input" type="file" accept="image/*" capture="environment" hidden>
+      </section>
+
+      <section class="rounded-[2rem] border border-white/60 bg-charcoal p-5 text-parchment shadow-card md:p-7">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <h2 class="text-2xl font-semibold">Prediction</h2>
+          </div>
+          <div class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.18em] text-parchment/70">
+            Top 5
+          </div>
+        </div>
+
+        <div class="mt-6 rounded-[1.75rem] border border-white/10 bg-white/5 p-6">
+          <div id="top-result" class="min-h-[9rem] rounded-[1.4rem] border border-dashed border-white/10 bg-black/10 p-6 text-center">
+            <p class="text-sm text-parchment/60">Draw or upload a character, then press Predict.</p>
+          </div>
+        </div>
+
+        <div class="mt-5 rounded-[1.75rem] border border-white/10 bg-black/10 p-5">
+          <div class="mb-4 flex items-center justify-between text-xs uppercase tracking-[0.2em] text-parchment/45">
+            <span>Confidence ranking</span>
+            <span id="result-status">Waiting</span>
+          </div>
+          <ol id="ranked-list" class="space-y-4"></ol>
+        </div>
+      </section>
+    </section>
   </main>
 
-  <div id="camera-modal" class="modal hidden">
-    <div class="modal-content">
-      <video id="camera-video" autoplay playsinline muted></video>
-      <div class="controls">
-        <button id="camera-cancel-btn" type="button">Cancel</button>
-        <button id="camera-capture-btn" type="button" class="primary">Capture</button>
+  <div id="camera-modal" class="camera-modal hidden">
+    <div class="camera-shell">
+      <div class="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <p class="text-xs uppercase tracking-[0.2em] text-parchment/45">Camera capture</p>
+          <h3 class="text-xl font-semibold text-parchment">Frame one handwritten character</h3>
+        </div>
+        <button id="camera-cancel-btn" type="button" class="rounded-full border border-white/15 px-4 py-2 text-sm text-parchment/80 transition hover:bg-white/10">
+          Close
+        </button>
+      </div>
+      <video id="camera-video" autoplay playsinline muted class="block w-full rounded-[1.25rem] border border-white/10 bg-black"></video>
+      <div class="mt-4 flex justify-end">
+        <button id="camera-capture-btn" type="button" class="rounded-full bg-saffron px-5 py-3 text-sm font-semibold text-charcoal transition hover:bg-[#e69347]">
+          Capture and Use
+        </button>
       </div>
     </div>
   </div>
