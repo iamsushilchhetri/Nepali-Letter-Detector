@@ -1,17 +1,17 @@
 :root {
-  color-scheme: dark;
-  --bg: #060911;
-  --panel: #0b0f19;
-  --panel-raised: #0e1424;
-  --ink: #dde5f7;
-  --muted: #7686a8;
-  --muted-dim: #4c5877;
-  --border: #1c2540;
-  --border-strong: #2b3860;
-  --accent: #4c7cf0;
-  --accent-bright: #7fabff;
-  --accent-dim: #23407e;
-  --grid-line: rgba(105, 145, 255, 0.05);
+  color-scheme: light;
+  --bg: #f6f7fb;
+  --panel: #ffffff;
+  --panel-raised: #eef1f9;
+  --ink: #161a2c;
+  --muted: #5b6478;
+  --muted-dim: #8891a6;
+  --border: #dde2f0;
+  --border-strong: #c1c9e2;
+  --accent: #3b5fe0;
+  --accent-strong: #2a46bf;
+  --accent-ink: #ffffff;
+  --grid-line: rgba(59, 95, 224, 0.07);
 }
 
 * {
@@ -31,6 +31,8 @@ body {
     repeating-linear-gradient(0deg, var(--grid-line) 0px, var(--grid-line) 1px, transparent 1px, transparent 42px),
     repeating-linear-gradient(90deg, var(--grid-line) 0px, var(--grid-line) 1px, transparent 1px, transparent 42px);
   color: var(--ink);
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .wrap {
@@ -48,7 +50,7 @@ header {
   font-size: 0.72rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--accent-bright);
+  color: var(--accent-strong);
   margin: 0 0 0.6rem;
 }
 
@@ -107,9 +109,10 @@ h1 {
   position: absolute;
   width: 16px;
   height: 16px;
-  border-color: var(--accent-bright);
+  border-color: var(--accent);
   border-style: solid;
-  opacity: 0.85;
+  opacity: 0.9;
+  pointer-events: none;
 }
 
 .canvas-frame::before {
@@ -131,6 +134,13 @@ h1 {
   touch-action: none;
   cursor: crosshair;
   display: block;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.canvas-card {
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .controls {
@@ -156,19 +166,19 @@ button {
 
 button:hover {
   border-color: var(--accent);
-  background: #101a30;
+  background: var(--bg);
 }
 
 button.primary {
   background: var(--accent);
-  color: #04060c;
+  color: var(--accent-ink);
   border-color: var(--accent);
   font-weight: 600;
 }
 
 button.primary:hover {
-  background: var(--accent-bright);
-  border-color: var(--accent-bright);
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
 }
 
 button:disabled {
@@ -200,7 +210,7 @@ button:disabled {
 
 .top-result .conf {
   font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
-  color: var(--accent-bright);
+  color: var(--accent-strong);
   font-size: 0.85rem;
   letter-spacing: 0.03em;
 }

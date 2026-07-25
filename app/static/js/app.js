@@ -47,21 +47,24 @@ function showPlaceholder(message) {
 }
 
 // --- freehand drawing ---
+// Uses the Pointer Events API (unifies mouse/trackpad/touch/stylus) with
+// pointer capture, so a fast drag that momentarily leaves the small canvas
+// still keeps drawing instead of breaking into a native text-selection drag.
 
 function pointFromEvent(evt) {
   const rect = canvas.getBoundingClientRect();
   const scaleX = canvas.width / rect.width;
   const scaleY = canvas.height / rect.height;
-  const source = evt.touches ? evt.touches[0] : evt;
   return {
-    x: (source.clientX - rect.left) * scaleX,
-    y: (source.clientY - rect.top) * scaleY,
+    x: (evt.clientX - rect.left) * scaleX,
+    y: (evt.clientY - rect.top) * scaleY,
   };
 }
 
 function startDraw(evt) {
   evt.preventDefault();
   drawing = true;
+  canvas.setPointerCapture(evt.pointerId);
   lastPoint = pointFromEvent(evt);
 }
 
@@ -83,13 +86,10 @@ function endDraw(evt) {
   lastPoint = null;
 }
 
-canvas.addEventListener("mousedown", startDraw);
-canvas.addEventListener("mousemove", draw);
-window.addEventListener("mouseup", endDraw);
-
-canvas.addEventListener("touchstart", startDraw, { passive: false });
-canvas.addEventListener("touchmove", draw, { passive: false });
-canvas.addEventListener("touchend", endDraw, { passive: false });
+canvas.addEventListener("pointerdown", startDraw);
+canvas.addEventListener("pointermove", draw);
+canvas.addEventListener("pointerup", endDraw);
+canvas.addEventListener("pointercancel", endDraw);
 
 clearBtn.addEventListener("click", () => {
   resetCanvas();
