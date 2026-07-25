@@ -21,3 +21,5 @@ models/*
 !models/README.md
 models/checkpoints/*
 !models/checkpoints/.gitkeep
+data/downloads/*
+!data/downloads/.gitkeep
